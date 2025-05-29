@@ -22,8 +22,10 @@ class BloombergService:
     def __init__(self) -> None:
         self.session: Optional[Any] = None  # blpapi.Session when available
         self.service: Optional[Any] = None  # blpapi.Service when available
+        self.service_name: Optional[str] = None  # Track which service is being used
         self.is_connected = False
         self._db: Optional[Any] = None  # DatabaseConnection when loaded
+        self._use_dummy_data = not BLOOMBERG_AVAILABLE  # Use dummy data if Bloomberg API not available
 
         # Only try to initialize Bloomberg if the package is available
         if BLOOMBERG_AVAILABLE:
@@ -59,12 +61,28 @@ class BloombergService:
                 logger.error("Failed to start Bloomberg session - ensure Bloomberg Terminal is running and logged in")
                 return
 
-            if not self.session.openService("//blp/mktdata"):
-                logger.error("Failed to open Bloomberg market data service - check API permissions")
+            # Try multiple services - start with reference data service
+            service_names = ["//blp/refdata", "//blp/mktdata"]
+            service_opened = False
+            
+            for service_name in service_names:
+                try:
+                    if self.session.openService(service_name):
+                        self.service = self.session.getService(service_name)
+                        self.service_name = service_name
+                        service_opened = True
+                        logger.info(f"Opened Bloomberg service: {service_name}")
+                        break
+                except Exception as e:
+                    logger.warning(f"Could not open service {service_name}: {e}")
+                    continue
+
+            if not service_opened:
+                logger.error("Failed to open any Bloomberg service - check API permissions")
                 return
 
-            self.service = self.session.getService("//blp/mktdata")
             self.is_connected = True
+            self._use_dummy_data = False  # Use real Bloomberg data when connected
             logger.info("Bloomberg API connected successfully")
 
         except Exception as e:
@@ -251,66 +269,85 @@ class BloombergService:
         if not self.service:
             raise RuntimeError("Bloomberg service not available")
 
-        request = self.service.createRequest("SnapshotDataRequest")
+        # Use ReferenceDataRequest which is more widely supported
+        request = self.service.createRequest("ReferenceDataRequest")
 
         # Add securities
+        securities = request.getElement("securities")
         for symbol in symbols:
-            request.getElement("securities").appendValue(symbol)
+            securities.appendValue(symbol)
 
-        # Add fields
-        fields = ["PX_LAST", "CHANGE", "CHANGE_PCT", "DESCRIPTION", "PRODUCT_CATEGORY"]
-        for field in fields:
-            request.getElement("fields").appendValue(field)
+        # Add fields - use basic fields that are commonly available
+        fields = request.getElement("fields")
+        field_list = ["PX_LAST", "NAME", "GICS_SECTOR_NAME"]
+        for field in field_list:
+            fields.appendValue(field)
 
         # Send request
         if not self.session:
             raise RuntimeError("Bloomberg session not available")
-        self.session.sendRequest(request)
+        
+        request_id = self.session.sendRequest(request)
+        logger.info(f"Sent Bloomberg request for symbols: {symbols}")
 
         # Process response
         results = []
-        while True:
-            event = self.session.nextEvent(500)
-
-            if event.eventType() == blpapi.Event.RESPONSE:
-                for msg in event:
-                    security_data = msg.getElement("securityData")
-                    for i in range(security_data.numValues()):
-                        security = security_data.getValueAsElement(i)
-                        symbol = security.getElementAsString("security")
-                        field_data = security.getElement("fieldData")
-
-                        result = {
-                            "symbol": symbol,
-                            "px_last": (
-                                field_data.getElementAsFloat("PX_LAST")
-                                if field_data.hasElement("PX_LAST")
-                                else None
-                            ),
-                            "change": (
-                                field_data.getElementAsFloat("CHANGE")
-                                if field_data.hasElement("CHANGE")
-                                else None
-                            ),
-                            "change_pct": (
-                                field_data.getElementAsFloat("CHANGE_PCT")
-                                if field_data.hasElement("CHANGE_PCT")
-                                else None
-                            ),
-                            "description": (
-                                field_data.getElementAsString("DESCRIPTION")
-                                if field_data.hasElement("DESCRIPTION")
-                                else ""
-                            ),
-                            "product_category": (
-                                field_data.getElementAsString("PRODUCT_CATEGORY")
-                                if field_data.hasElement("PRODUCT_CATEGORY")
-                                else ""
-                            ),
-                        }
-                        results.append(result)
-                break
-
+        try:
+            while True:
+                event = self.session.nextEvent(5000)  # 5 second timeout
+                
+                if event.eventType() == blpapi.Event.TIMEOUT:
+                    logger.warning("Bloomberg request timed out")
+                    break
+                    
+                elif event.eventType() == blpapi.Event.RESPONSE:
+                    for msg in event:
+                        if msg.hasElement("securityData"):
+                            security_data = msg.getElement("securityData")
+                            for i in range(security_data.numValues()):
+                                security = security_data.getValueAsElement(i)
+                                symbol = security.getElementAsString("security")
+                                
+                                # Check for security errors
+                                if security.hasElement("securityError"):
+                                    error = security.getElement("securityError")
+                                    logger.warning(f"Security error for {symbol}: {error}")
+                                    continue
+                                
+                                field_data = security.getElement("fieldData")
+                                
+                                result = {
+                                    "symbol": symbol,
+                                    "px_last": (
+                                        field_data.getElementAsFloat("PX_LAST")
+                                        if field_data.hasElement("PX_LAST") and not field_data.getElement("PX_LAST").isNull()
+                                        else 0.0
+                                    ),
+                                    "change": 0.0,  # Not available in reference data
+                                    "change_pct": 0.0,  # Not available in reference data
+                                    "description": (
+                                        field_data.getElementAsString("NAME")
+                                        if field_data.hasElement("NAME") and not field_data.getElement("NAME").isNull()
+                                        else ""
+                                    ),
+                                    "product_category": (
+                                        field_data.getElementAsString("GICS_SECTOR_NAME")
+                                        if field_data.hasElement("GICS_SECTOR_NAME") and not field_data.getElement("GICS_SECTOR_NAME").isNull()
+                                        else "Unknown"
+                                    ),
+                                }
+                                results.append(result)
+                                logger.info(f"Retrieved data for {symbol}: {result['px_last']}")
+                    break
+                    
+                elif event.eventType() == blpapi.Event.PARTIAL_RESPONSE:
+                    # Continue processing partial responses
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error processing Bloomberg response: {e}")
+            
+        logger.info(f"Bloomberg returned {len(results)} results")
         return results
 
     def get_historical_data(
@@ -338,7 +375,9 @@ class BloombergService:
             if not self.service:
                 raise RuntimeError("Bloomberg service not available")
 
-            request = self.service.createRequest("HistoricalDataRequest")
+            # Use appropriate request type based on available service
+            request_type = "HistoricalDataRequest"
+            request = self.service.createRequest(request_type)
 
             request.getElement("securities").appendValue(symbol)
             request.getElement("fields").appendValue("PX_LAST")
@@ -348,28 +387,46 @@ class BloombergService:
 
             if not self.session:
                 raise RuntimeError("Bloomberg session not available")
+            
+            logger.info(f"Requesting historical data for {symbol} from {start_date.date()} to {end_date.date()}")
             self.session.sendRequest(request)
 
             # Process response
             results = []
             while True:
-                event = self.session.nextEvent(500)
+                event = self.session.nextEvent(10000)  # 10 second timeout
 
-                if event.eventType() == blpapi.Event.RESPONSE:
-                    for msg in event:
-                        security_data = msg.getElement("securityData")
-                        field_data = security_data.getElement("fieldData")
-
-                        for i in range(field_data.numValues()):
-                            data_point = field_data.getValueAsElement(i)
-                            date = data_point.getElementAsDatetime("date")
-                            price = data_point.getElementAsFloat("PX_LAST")
-
-                            results.append(
-                                {"date": date.strftime("%Y-%m-%d"), "price": price}
-                            )
+                if event.eventType() == blpapi.Event.TIMEOUT:
+                    logger.warning("Bloomberg historical data request timed out")
                     break
 
+                elif event.eventType() == blpapi.Event.RESPONSE:
+                    for msg in event:
+                        if msg.hasElement("securityData"):
+                            security_data = msg.getElement("securityData")
+                            
+                            # Check for security errors
+                            if security_data.hasElement("securityError"):
+                                error = security_data.getElement("securityError")
+                                logger.warning(f"Security error for {symbol}: {error}")
+                                break
+                                
+                            if security_data.hasElement("fieldData"):
+                                field_data = security_data.getElement("fieldData")
+
+                                for i in range(field_data.numValues()):
+                                    data_point = field_data.getValueAsElement(i)
+                                    if data_point.hasElement("date") and data_point.hasElement("PX_LAST"):
+                                        date = data_point.getElementAsDatetime("date")
+                                        price = data_point.getElementAsFloat("PX_LAST")
+
+                                        results.append(
+                                            {"date": date.strftime("%Y-%m-%d"), "price": price}
+                                        )
+                    break
+
+            logger.info(f"Retrieved {len(results)} historical data points for {symbol}")
+            
             # Cache the historical data
             if results:
                 self._cache_historical_data(symbol, results)

@@ -58,8 +58,6 @@ const BloombergStatus: React.FC<BloombergStatusProps> = ({ onDataSourceChange })
         throw new Error(`HTTP ${response.status}`);
       }
       
-      const result = await response.json();
-      
       // Refresh status after reconnect attempt
       await fetchStatus();
       

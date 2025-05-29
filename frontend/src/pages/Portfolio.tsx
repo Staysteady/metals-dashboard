@@ -39,9 +39,9 @@ const Portfolio: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
           <Briefcase className="h-8 w-8 text-blue-600" />
-          Portfolio
+          Tickers & Portfolio
         </h1>
-        <p className="text-gray-600">Your metals trading portfolio performance and holdings</p>
+        <p className="text-gray-600">Your metals trading portfolio performance and ticker information</p>
       </div>
 
       {/* Portfolio Summary Cards */}

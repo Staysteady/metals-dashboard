@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   BarChart3, 
   Settings, 
@@ -116,8 +117,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage = 'dashboa
           <ul className="space-y-2">
             {navItems.map((item) => (
               <li key={item.id}>
-                <a
-                  href={item.href}
+                <Link
+                  to={item.href}
                   className={`
                     flex items-center p-3 rounded-lg transition-colors
                     ${currentPage === item.id 
@@ -136,7 +137,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage = 'dashboa
                       {item.label}
                     </span>
                   )}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

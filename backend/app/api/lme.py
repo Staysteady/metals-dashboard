@@ -18,6 +18,7 @@ ticker_service = TickerService()
 
 class LMETickerData(BaseModel):
     """LME ticker data with live Bloomberg prices"""
+    id: int  # Add database ID for deletion
     ticker: str
     description: str  
     metal: str
@@ -78,6 +79,7 @@ async def get_lme_tickers_with_prices(
             price_info = live_prices.get(ticker.symbol, {})
             
             result.append(LMETickerData(
+                id=ticker.id,
                 ticker=ticker.symbol,
                 description=ticker.description,
                 metal=extract_metal_from_symbol(ticker.symbol),

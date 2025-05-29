@@ -4,7 +4,6 @@ import {
   Trash2, 
   TrendingUp, 
   TrendingDown, 
-  Minus, 
   RefreshCw,
   AlertCircle,
   CheckCircle,
@@ -15,6 +14,7 @@ import {
 import axios from 'axios';
 
 interface LMETickerData {
+  id: number;  // Add database ID for deletion
   ticker: string;
   description: string;
   metal: string;
@@ -59,20 +59,28 @@ const Bloomberg: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      console.log('Bloomberg: Starting to fetch data...');
       setRefreshing(true);
       
       // Fetch tickers and market status in parallel
+      console.log('Bloomberg: Fetching from API...');
       const [tickersResponse, statusResponse] = await Promise.all([
         axios.get(`${API_BASE}/lme/tickers?include_live_prices=true`),
         axios.get(`${API_BASE}/lme/market-status`)
       ]);
       
-      setTickers(tickersResponse.data);
+      console.log('Bloomberg: Received responses:', { 
+        tickers: tickersResponse.data?.length || 0, 
+        status: statusResponse.data 
+      });
+      
+      setTickers(tickersResponse.data || []);
       setMarketStatus(statusResponse.data);
       setError(null);
-    } catch (err) {
-      console.error('Error fetching Bloomberg data:', err);
-      setError('Failed to fetch Bloomberg data. Please ensure your Bloomberg Terminal is running.');
+    } catch (err: any) {
+      console.error('Bloomberg: Error fetching data:', err);
+      console.error('Bloomberg: Error details:', err.response?.data || err.message);
+      setError(`Failed to fetch Bloomberg data: ${err.response?.data?.detail || err.message}. Please ensure your Bloomberg Terminal is running.`);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -137,7 +145,7 @@ const Bloomberg: React.FC = () => {
   };
 
   const formatChange = (change?: number, changePercent?: number) => {
-    if (change === undefined || changePercent === undefined) return null;
+    if (change === undefined || change === null || changePercent === undefined || changePercent === null) return null;
     
     const isPositive = change >= 0;
     const Icon = isPositive ? TrendingUp : TrendingDown;
@@ -376,7 +384,7 @@ const Bloomberg: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <button
-                      onClick={() => handleDeleteTicker(index.toString())}
+                      onClick={() => handleDeleteTicker(ticker.id.toString())}
                       className="text-red-600 hover:text-red-800 p-1"
                       title="Remove ticker"
                     >
