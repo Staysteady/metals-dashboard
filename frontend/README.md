@@ -2,371 +2,340 @@
 
 React + TypeScript + Vite frontend for the Metals Trading Dashboard with real-time Bloomberg data integration.
 
+## 🚀 Features
+
+- **Single-Page Application** - Streamlined Bloomberg Live data interface
+- **Real-time Price Updates** - Live metals prices with automatic refresh
+- **Bloomberg Connection Status** - Visual indicator of Bloomberg Terminal connection
+- **Professional UI** - Clean, trading-focused interface design
+- **Type-Safe** - Full TypeScript implementation with strict type checking
+
+## 🛠 Tech Stack
+
+- **React 18** - Modern React with hooks and concurrent features
+- **TypeScript** - Type safety and enhanced developer experience
+- **Vite** - Lightning-fast build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **Lucide React** - Beautiful icon library
+- **React Router** - Client-side routing
+
+## 📋 Prerequisites
+
+- **Node.js 18+** - [Download](https://nodejs.org/)
+- **npm** or **yarn** - Package manager
+- **Running Backend** - FastAPI backend must be running on `localhost:8000`
+
 ## 🚀 Quick Start
 
-### Prerequisites
-- **Node.js** (v18 or higher)
-- **npm** or **yarn**
-
-### 1. Install Dependencies
 ```bash
-cd frontend
+# Install dependencies
 npm install
-```
 
-### 2. Environment Setup (Optional)
-Create `.env` file:
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_APP_TITLE=Metals Dashboard
-VITE_UPDATE_INTERVAL=30000
-```
+# Set up environment variables
+cp .env.example .env
 
-### 3. Run Development Server
-```bash
+# Start development server
 npm run dev
 ```
 
-The application will be available at: http://localhost:5173
+## 🔧 Environment Variables
 
-## 🗂️ Project Structure
+Create `.env` file:
+```env
+# Application
+VITE_APP_TITLE=Metals Dashboard
+VITE_API_URL=http://localhost:8000
+
+# Development
+VITE_APP_ENV=development
+```
+
+## 📁 Project Structure
 
 ```
 frontend/
 ├── src/
-│   ├── App.tsx                    # Main application component
-│   ├── main.tsx                   # Application entry point
-│   ├── pages/                     # Page components
-│   │   ├── Home.tsx              # Dashboard with charts and data
-│   │   └── Portfolio.tsx         # Portfolio management page
-│   ├── components/               # Reusable UI components
-│   │   ├── Layout.tsx           # Application layout wrapper
-│   │   ├── BloombergStatus.tsx  # Bloomberg connection status
-│   │   ├── charts/              # Chart components
-│   │   │   ├── PriceHistoryChart.tsx
-│   │   │   ├── CurrentPricesChart.tsx
-│   │   │   └── PortfolioChart.tsx
-│   │   ├── tables/              # Table components
-│   │   │   └── MetalsDataTable.tsx
-│   │   └── ui/                  # shadcn/ui components
-│   ├── services/                # API service layer
-│   │   ├── api.ts              # Main API client
-│   │   ├── lmeService.ts       # LME data service
-│   │   └── types.ts            # API response types
-│   ├── types/                  # TypeScript type definitions
-│   │   ├── metals.ts           # Metals data types
-│   │   └── api.ts              # API types
-│   ├── hooks/                  # Custom React hooks
-│   │   ├── useMetalsData.ts    # Metals data fetching hook
-│   │   └── useMarketStatus.ts  # Market status hook
-│   ├── utils/                  # Utility functions
-│   │   ├── formatters.ts       # Data formatting utilities
-│   │   └── constants.ts        # Application constants
-│   └── styles/                 # Global styles
-│       └── globals.css         # Tailwind CSS and global styles
+│   ├── App.tsx                 # Main application component
+│   ├── main.tsx               # Application entry point
+│   ├── pages/
+│   │   └── Bloomberg.tsx      # Bloomberg Live page (main page)
+│   ├── components/
+│   │   ├── Layout.tsx         # Application layout wrapper
+│   │   └── DataSourceToggle.tsx # Bloomberg status component
+│   ├── api/
+│   │   └── client.ts          # API client with axios
+│   ├── types/
+│   │   └── index.ts           # TypeScript type definitions
+│   └── styles/
+│       └── index.css          # Global styles with Tailwind
 ├── public/                     # Static assets
 ├── package.json               # Dependencies and scripts
 ├── vite.config.ts            # Vite configuration
-├── tsconfig.json             # TypeScript configuration
 ├── tailwind.config.js        # Tailwind CSS configuration
-├── eslint.config.js          # ESLint configuration
-└── README.md                 # This file
+└── tsconfig.json             # TypeScript configuration
 ```
 
-## 🔧 Available Scripts
+## 🎯 Key Components
 
-### Development
+### Bloomberg.tsx
+Main page component displaying:
+- **Live Price Data** - Real-time metals prices from Bloomberg
+- **Market Status** - Current market open/closed status
+- **Price Updates** - Automatic refresh every 30 seconds
+- **Error Handling** - Graceful error states and loading indicators
+
+### Layout.tsx
+Application shell providing:
+- **Navigation** - Clean sidebar with Bloomberg page link
+- **Responsive Design** - Mobile-friendly layout
+- **Header** - Application title and branding
+
+### DataSourceToggle.tsx
+Bloomberg connection indicator showing:
+- **Connection Status** - Live/Offline Bloomberg connection
+- **Visual Feedback** - Color-coded status indicator
+- **Refresh Button** - Manual data refresh capability
+
+## 🔄 Data Flow
+
+1. **API Client** (`client.ts`) makes requests to FastAPI backend
+2. **Bloomberg Component** fetches live price data and market status
+3. **Type-safe Interfaces** ensure data integrity throughout application
+4. **Automatic Updates** refresh data every 30 seconds during market hours
+5. **Error Boundaries** handle network failures gracefully
+
+## 🧪 Testing
+
 ```bash
-npm run dev          # Start development server with hot reload
-npm run build        # Build for production
-npm run preview      # Preview production build locally
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
 ```
 
-### Testing
-```bash
-npm test             # Run tests in watch mode
-npm run test:coverage # Run tests with coverage report
-npm run test:ci      # Run tests once (CI mode)
-```
-
-### Code Quality
-```bash
-npm run lint         # Check for linting errors
-npm run lint:fix     # Fix auto-fixable linting errors
-npm run format       # Format code with Prettier
-npm run format:check # Check if code is properly formatted
-npm run type-check   # Run TypeScript type checking
-```
-
-## 🎨 Key Components
-
-### Pages
-
-#### Home.tsx
-- **Main dashboard** with real-time metals data
-- **Interactive charts** using Plotly.js
-- **Data table** with sortable columns
-- **Market status indicators**
-- **Bloomberg connection status**
-
-#### Portfolio.tsx
-- **Portfolio overview** with holdings
-- **Performance charts**
-- **P&L calculations**
-- **Asset allocation visualization**
-
-### Components
-
-#### Layout.tsx
-- **Navigation wrapper** for all pages
-- **Responsive design** for mobile and desktop
-- **Common header and footer**
-
-#### BloombergStatus.tsx
-- **Bloomberg connection status indicator**
-- **Visual indicators** for current connection state
-- **Real-time status updates**
-
-#### Charts
-- **PriceHistoryChart.tsx** - Historical price trends
-- **CurrentPricesChart.tsx** - Current price distribution
-- **PortfolioChart.tsx** - Portfolio performance
-
-### Services
-
-#### api.ts
-```typescript
-// Main API client with axios
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  timeout: 10000,
-});
-```
-
-#### lmeService.ts
-```typescript
-// LME-specific API calls
-export const getLMETickers = async (includeLivePrices = false) => {
-  // Fetch LME tickers with optional live prices
-};
-
-export const getMarketStatus = async () => {
-  // Get current market status
-};
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-```env
-# API Configuration
-VITE_API_BASE_URL=http://localhost:8000
-VITE_APP_TITLE=Metals Dashboard
-
-# Feature Flags
-VITE_UPDATE_INTERVAL=30000
-
-# Development
-VITE_DEBUG=false
-```
-
-### Vite Configuration
-```typescript
-// vite.config.ts
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': 'http://localhost:8000'
-    }
-  }
-});
-```
-
-## 📊 Data Flow
-
-### Real-time Updates
-1. **Initial Load** - Fetch tickers and market status
-2. **Polling** - Update data every 30 seconds when market is open
-3. **Error Handling** - Graceful fallback to cached data
-4. **User Interactions** - Add/remove tickers, view Bloomberg status
-
-### State Management
-- **React State** for component-level state
-- **Custom hooks** for data fetching and caching
-- **Context API** for global state (market status, Bloomberg connection)
+### Test Structure
+- **Component Tests** - React Testing Library for UI components
+- **API Tests** - Mock service layer testing
+- **Type Tests** - TypeScript compilation verification
+- **E2E Tests** - End-to-end user workflow testing
 
 ## 🎨 Styling
 
 ### Tailwind CSS
-- **Utility-first** CSS framework
-- **Responsive design** with mobile-first approach
-- **Custom theme** for metals dashboard colors
+- **Utility-First** - Rapidly build custom designs
+- **Responsive** - Mobile-first responsive design
+- **Dark Mode Ready** - Prepared for dark theme implementation
+- **Professional Palette** - Trading-appropriate color scheme
 
-### shadcn/ui Components
-- **High-quality** pre-built components
-- **Accessible** and keyboard navigable
-- **Customizable** with CSS variables
+### Component Styling
+```tsx
+// Example: Professional price display
+<div className="bg-white rounded-lg shadow-sm border border-gray-200">
+  <div className="p-6">
+    <h2 className="text-xl font-semibold text-gray-900">
+      Live Metals Prices
+    </h2>
+    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Price cards */}
+    </div>
+  </div>
+</div>
+```
 
-## 📈 Charts & Visualization
+## 📊 Performance
 
-### Plotly.js Integration
+### Optimization Features
+- **Code Splitting** - Lazy loading for optimal bundle size
+- **Tree Shaking** - Remove unused code automatically
+- **Asset Optimization** - Automatic image and asset optimization
+- **Caching Strategy** - Intelligent API response caching
+
+### Bundle Analysis
+```bash
+# Analyze bundle size
+npm run build
+npm run preview
+
+# Bundle size breakdown
+npm run analyze
+```
+
+## 🔧 Development
+
+### Available Scripts
+
+```bash
+# Development
+npm run dev              # Start dev server with hot reload
+npm run build            # Production build
+npm run preview          # Preview production build
+
+# Testing
+npm test                 # Run test suite
+npm run test:coverage    # Test with coverage report
+npm run test:watch       # Watch mode testing
+
+# Code Quality
+npm run lint             # ESLint checking
+npm run lint:fix         # Auto-fix linting issues
+npm run type-check       # TypeScript type checking
+
+# Formatting
+npm run format           # Prettier formatting
+npm run format:check     # Check formatting
+```
+
+### Development Server
+- **Port**: `5173` (default Vite port)
+- **Hot Reload** - Instant updates during development
+- **Error Overlay** - Clear error messages in browser
+- **Network Access** - `--host` flag for network testing
+
+## 🚀 Production Build
+
+```bash
+# Create production build
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Deploy static files from dist/ folder
+```
+
+### Build Output
+```
+dist/
+├── index.html              # Entry HTML file
+├── assets/
+│   ├── index.css          # Bundled styles
+│   └── index.js           # Bundled JavaScript
+└── favicon.ico            # Application icon
+```
+
+## 🔗 API Integration
+
+### Client Configuration
 ```typescript
-import Plot from 'react-plotly.js';
-
-// Price history chart
-<Plot
-  data={[{
-    x: dates,
-    y: prices,
-    type: 'scatter',
-    mode: 'lines',
-    name: selectedSymbol
-  }]}
-  layout={{
-    title: 'Price History',
-    xaxis: { title: 'Date' },
-    yaxis: { title: 'Price (USD)' }
-  }}
-/>
-```
-
-### Chart Types
-- **Line Charts** - Price history and trends
-- **Bar Charts** - Current price comparison
-- **Pie Charts** - Portfolio allocation
-- **Scatter Plots** - Price correlation analysis
-
-## 🧪 Testing
-
-### Test Structure
-```
-src/
-├── __tests__/              # Test files
-│   ├── components/        # Component tests
-│   ├── pages/            # Page tests
-│   ├── services/         # Service tests
-│   └── utils/            # Utility tests
-├── __mocks__/             # Mock implementations
-└── test-utils.tsx         # Testing utilities
-```
-
-### Testing Libraries
-- **Jest** - Test runner and assertions
-- **React Testing Library** - Component testing
-- **MSW** - API mocking for tests
-- **@testing-library/user-event** - User interaction testing
-
-### Example Test
-```typescript
-import { render, screen } from '@testing-library/react';
-import { Home } from '../pages/Home';
-
-test('renders metals dashboard', async () => {
-  render(<Home />);
-  
-  // Check for main elements
-  expect(screen.getByText('Metals Dashboard')).toBeInTheDocument();
-  expect(screen.getByText('Market Status')).toBeInTheDocument();
-  
-  // Wait for data to load
-  await screen.findByText('Gold');
-  expect(screen.getByText('Silver')).toBeInTheDocument();
+// api/client.ts
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 ```
 
-## 🔍 Troubleshooting
+### Error Handling
+```typescript
+// Automatic error handling and retry logic
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle network errors, timeouts, etc.
+    return Promise.reject(error);
+  }
+);
+```
+
+## 🐛 Troubleshooting
 
 ### Common Issues
 
 #### 1. API Connection Failed
 ```bash
-# Check if backend is running
-curl http://localhost:8000/health
+# Check backend is running
+curl http://localhost:8000/health/
 
 # Verify environment variables
-echo $VITE_API_BASE_URL
+cat .env
 ```
 
-#### 2. Charts Not Loading
+#### 2. Build Fails
 ```bash
-# Clear npm cache and reinstall
-npm cache clean --force
+# Clear node modules and reinstall
 rm -rf node_modules package-lock.json
 npm install
+
+# Clear Vite cache
+npm run build -- --force
 ```
 
-#### 3. TypeScript Errors
+#### 3. Types Not Found
 ```bash
-# Run type checking
-npm run type-check
+# Restart TypeScript server in VS Code
+# Ctrl+Shift+P > "TypeScript: Restart TS Server"
 
-# Clear TypeScript cache
-rm -rf node_modules/.cache
+# Check tsconfig.json paths
+npx tsc --noEmit
 ```
 
 #### 4. Hot Reload Not Working
 ```bash
-# Restart development server
+# Check if port 5173 is available
+netstat -an | findstr 5173
+
+# Restart dev server
 npm run dev
-
-# Check for port conflicts
-lsof -i :5173  # macOS/Linux
-netstat -ano | findstr :5173  # Windows
 ```
 
-## 🚀 Deployment
-
-### Build for Production
-```bash
-npm run build
-```
-
-### Preview Build
-```bash
-npm run preview
-```
-
-### Deploy to Static Hosting
-```bash
-# Build files will be in dist/
-# Upload dist/ folder to your hosting provider
-```
-
-## 📱 Mobile Responsiveness
+## 📱 Responsive Design
 
 ### Breakpoints
-- **sm**: 640px and up
-- **md**: 768px and up  
-- **lg**: 1024px and up
-- **xl**: 1280px and up
+- **Mobile**: `< 768px` - Single column layout
+- **Tablet**: `768px - 1024px` - Two column layout  
+- **Desktop**: `> 1024px` - Full multi-column layout
 
-### Mobile Features
-- **Touch-friendly** chart interactions
-- **Responsive tables** with horizontal scroll
-- **Mobile navigation** with collapsible menu
-- **Optimized performance** for mobile devices
+### Mobile Optimizations
+- **Touch Targets** - Minimum 44px touch areas
+- **Readable Text** - Minimum 16px font size
+- **Navigation** - Collapsible sidebar menu
+- **Performance** - Optimized for mobile networks
 
-## 🔧 Development Tips
+## 🔒 Security
 
-### Hot Reload
-- Changes are reflected immediately
-- State is preserved when possible
-- Error overlay shows compilation errors
+### Security Features
+- **XSS Protection** - React's built-in XSS prevention
+- **CSRF Protection** - Token-based API authentication
+- **Secure Headers** - Content Security Policy headers
+- **Input Validation** - All user inputs validated
 
-### Debugging
-- Use browser DevTools for debugging
-- React DevTools extension for component inspection
-- Network tab for API request debugging
+## 📈 Browser Support
 
-### Performance
-- Charts are memoized to prevent unnecessary re-renders
-- API calls are debounced and cached
-- Images and assets are optimized
+### Supported Browsers
+- **Chrome** 90+ ✅
+- **Firefox** 88+ ✅  
+- **Safari** 14+ ✅
+- **Edge** 90+ ✅
 
----
+### Polyfills
+Vite automatically includes necessary polyfills for:
+- **ES2020 Features**
+- **CSS Custom Properties**
+- **Async/Await**
 
-**🔗 Repository**: https://github.com/Staysteady/metals-dashboard.git  
-**📖 Main README**: [../README.md](../README.md)  
-**🚀 Backend**: [../backend/README.md](../backend/README.md)
+## 📝 Contributing
+
+### Code Style
+- **ESLint** - Airbnb configuration with TypeScript
+- **Prettier** - Consistent code formatting
+- **Husky** - Pre-commit hooks for quality assurance
+
+### Pull Request Process
+1. Create feature branch
+2. Write tests for new features
+3. Ensure all tests pass
+4. Update documentation
+5. Submit pull request
+
+## 🔗 Links
+
+**🔗 Repository**: https://github.com/Staysteady/metals-dashboard.git
+**📚 Vite Docs**: https://vitejs.dev/
+**⚛️ React Docs**: https://reactjs.org/
+**🎨 Tailwind Docs**: https://tailwindcss.com/

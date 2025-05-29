@@ -29,12 +29,18 @@ class BloombergService:
     def __init__(self) -> None:
         self._session = None
         self._is_connected = False
+        self._startup_error = None
         
         if BLOOMBERG_AVAILABLE:
-            self._initialize_bloomberg()
+            try:
+                self._initialize_bloomberg()
+            except Exception as e:
+                logger.warning(f"Bloomberg initialization failed: {e}")
+                self._startup_error = str(e)
+                self._is_connected = False
         else:
-            logger.error("Bloomberg API not available - live data feeds required")
-            raise RuntimeError("Bloomberg API is required for this application")
+            logger.warning("Bloomberg API not available - application will run in limited mode")
+            self._startup_error = "Bloomberg API package not available or BLPAPI_ROOT not set"
 
     @property
     def db(self) -> Any:
@@ -87,7 +93,9 @@ class BloombergService:
 
     def _get_status_message(self) -> str:
         """Get a descriptive status message"""
-        if not BLOOMBERG_AVAILABLE:
+        if self._startup_error:
+            return f"Bloomberg startup failed: {self._startup_error}"
+        elif not BLOOMBERG_AVAILABLE:
             return "Bloomberg API package not installed. Install with: pip install blpapi"
         elif not self._is_connected:
             return "Bloomberg Terminal not available. Ensure Terminal is running and logged in."
@@ -231,13 +239,18 @@ class BloombergService:
 
     def get_real_time_data(self, symbols: List[str]) -> List[Dict[str, Any]]:
         """Get real-time price data for given symbols"""
-        if not BLOOMBERG_AVAILABLE:
-            logger.error("Bloomberg API package not available")
+        if not BLOOMBERG_AVAILABLE or self._startup_error:
+            logger.warning("Bloomberg API not available - returning empty data")
             return []
 
         if not self._is_connected:
             logger.warning("Bloomberg not connected, attempting to reconnect...")
-            self._initialize_bloomberg()
+            try:
+                self._initialize_bloomberg()
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Bloomberg: {e}")
+                return []
+            
             if not self._is_connected:
                 logger.error("Failed to connect to Bloomberg Terminal")
                 return []
@@ -256,8 +269,11 @@ class BloombergService:
         if not self._session:
             raise RuntimeError("Bloomberg session not available")
 
+        # Get the reference data service
+        service = self._session.getService("//blp/refdata")
+        
         # Use ReferenceDataRequest which is more widely supported
-        request = self._session.createRequest("ReferenceDataRequest")
+        request = service.createRequest("ReferenceDataRequest")
 
         # Add securities
         securities = request.getElement("securities")
@@ -343,13 +359,18 @@ class BloombergService:
         if cached_data:
             return cached_data
 
-        if not BLOOMBERG_AVAILABLE:
-            logger.error("Bloomberg API package not available for historical data")
+        if not BLOOMBERG_AVAILABLE or self._startup_error:
+            logger.warning("Bloomberg API not available for historical data - returning empty data")
             return []
 
         if not self._is_connected:
             logger.warning("Bloomberg not connected for historical data, attempting to reconnect...")
-            self._initialize_bloomberg()
+            try:
+                self._initialize_bloomberg()
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Bloomberg for historical data: {e}")
+                return []
+            
             if not self._is_connected:
                 logger.error("Failed to connect to Bloomberg Terminal for historical data")
                 return []
@@ -359,9 +380,12 @@ class BloombergService:
             if not self._session:
                 raise RuntimeError("Bloomberg session not available")
 
+            # Get the reference data service
+            service = self._session.getService("//blp/refdata")
+            
             # Use appropriate request type based on available service
             request_type = "HistoricalDataRequest"
-            request = self._session.createRequest(request_type)
+            request = service.createRequest(request_type)
 
             request.getElement("securities").appendValue(symbol)
             request.getElement("fields").appendValue("PX_LAST")

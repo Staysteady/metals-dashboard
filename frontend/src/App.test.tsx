@@ -15,12 +15,13 @@ vi.mock('react-plotly.js', () => ({
 }));
 
 describe('App', () => {
-  it('renders metals dashboard title from Home component', async () => {
+  it('renders Bloomberg page as default', async () => {
     render(<App />)
     
-    // Wait for the Home component to load
+    // Wait for the Bloomberg component to load
     await waitFor(() => {
-      const titleElement = screen.getByText(/Metals Trading Dashboard/i)
+      // Look for Bloomberg-specific content instead of Dashboard
+      const titleElement = screen.getByText(/Bloomberg/i)
       expect(titleElement).toBeInTheDocument()
     })
   })

@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  BarChart3, 
-  Settings, 
-  TrendingUp, 
-  Bell, 
   Menu,
   X,
-  Home,
   DollarSign
 } from 'lucide-react';
 
@@ -25,50 +20,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: <Home size={20} />,
-    href: '/'
-  },
-  {
     id: 'bloomberg',
     label: 'Bloomberg Live',
     icon: <DollarSign size={20} />,
     href: '/bloomberg'
-  },
-  {
-    id: 'tickers',
-    label: 'Tickers',
-    icon: <TrendingUp size={20} />,
-    href: '/tickers'
-  },
-  {
-    id: 'charts',
-    label: 'Charts',
-    icon: <BarChart3 size={20} />,
-    href: '/charts'
-  },
-  {
-    id: 'settlement',
-    label: 'Settlement',
-    icon: <TrendingUp size={20} />,
-    href: '/settlement'
-  },
-  {
-    id: 'alerts',
-    label: 'Alerts',
-    icon: <Bell size={20} />,
-    href: '/alerts'
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: <Settings size={20} />,
-    href: '/settings'
   }
 ];
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentPage = 'dashboard' }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentPage = 'bloomberg' }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
