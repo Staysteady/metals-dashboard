@@ -7,7 +7,6 @@ A cross-platform metals trading dashboard with real-time price data from Bloombe
 - 📊 **Interactive Plotly Charts** - Historical price trends and current price distribution
 - 🏠 **Home Page Dashboard** - Complete metals trading overview with real-time updates
 - 📈 **Real-time Price Tracking** - Gold, Silver, Platinum, Copper, Aluminum, Zinc, Lead, Tin, Nickel
-- 🔄 **Data Source Toggle** - Switch between live Bloomberg and dummy data
 - 📱 **Market Status Indicators** - Visual market open/closed status with timing
 - 🎯 **Portfolio Example** - Sample portfolio page with mock holdings and P&L
 - 🧪 **Comprehensive Testing** - 100% test coverage with CI/CD pipeline
@@ -19,7 +18,7 @@ A cross-platform metals trading dashboard with real-time price data from Bloombe
 - **Node.js** (v18 or higher) - [Download](https://nodejs.org/)
 - **Python** (3.9 or higher) - [Download](https://python.org/)
 - **Git** - [Download](https://git-scm.com/)
-- **Bloomberg Terminal** (optional, for live data) - [Bloomberg](https://www.bloomberg.com/professional/support/software-updates/)
+- **Bloomberg Terminal** (required for live data) - [Bloomberg](https://www.bloomberg.com/professional/support/software-updates/)
 
 ### 1. Clone Repository
 ```bash
@@ -73,8 +72,7 @@ Create `backend/.env` file:
 # Database
 DATABASE_URL=sqlite:///./data/metals.db
 
-# Bloomberg API (optional - for live data)
-USE_DUMMY_DATA=false
+# Bloomberg API (required for live data)
 BLPAPI_ROOT=C:\blp\API\APIv3\C++API\v3.24.10.1\lib
 BLOOMBERG_HOST=localhost
 BLOOMBERG_PORT=8194
@@ -85,7 +83,7 @@ API_PORT=8000
 DEBUG=true
 ```
 
-#### 4. Bloomberg API Setup (Optional)
+#### 4. Bloomberg API Setup (Required)
 
 **Windows Bloomberg Terminal Users:**
 ```bash
@@ -248,7 +246,7 @@ metals-dashboard/
 │   │   │   └── Portfolio.tsx # Portfolio management
 │   │   ├── components/       # Reusable UI components
 │   │   │   ├── Layout.tsx    # App layout wrapper
-│   │   │   ├── DataSourceToggle.tsx  # Bloomberg/Dummy data toggle
+│   │   │   ├── BloombergStatus.tsx  # Bloomberg connection status
 │   │   │   └── charts/       # Chart components
 │   │   ├── services/         # API service layer
 │   │   └── types/            # TypeScript type definitions
@@ -274,7 +272,6 @@ metals-dashboard/
    ```
 4. **Update backend/.env**:
    ```env
-   USE_DUMMY_DATA=false
    BLPAPI_ROOT=C:\blp\API\APIv3\C++API\v3.24.10.1\lib
    BLOOMBERG_HOST=localhost
    BLOOMBERG_PORT=8194
@@ -349,19 +346,6 @@ npm run dev:backend
 # Frontend only
 npm run dev:frontend
 ```
-
-## 🔄 Data Modes
-
-### Dummy Data Mode (Default)
-- Perfect for development without Bloomberg Terminal
-- Uses realistic but static market data
-- Set `USE_DUMMY_DATA=true` in `backend/.env`
-
-### Live Bloomberg Mode
-- Requires Bloomberg Terminal running
-- Real-time market data updates
-- Set `USE_DUMMY_DATA=false` in `backend/.env`
-- Ensure `BLPAPI_ROOT` is correctly configured
 
 ## 🌐 Access Points
 
@@ -443,7 +427,7 @@ npm install
 1. Check the terminal output for specific error messages
 2. Ensure all prerequisites are installed
 3. Verify environment variables are set correctly
-4. Check that Bloomberg Terminal is running (for live data)
+4. Check that Bloomberg Terminal is running (required for live data)
 5. Consult the API documentation at http://localhost:8000/docs
 
 ## 📊 Supported Metals & Symbols

@@ -233,8 +233,7 @@ const Bloomberg: React.FC = () => {
 
         <div className="text-sm text-gray-600">
           {tickers.length} tickers tracked • 
-          {tickers.filter(t => t.is_live).length} live • 
-          {tickers.filter(t => !t.is_live).length} dummy
+          {tickers.filter(t => t.is_live).length} live
         </div>
       </div>
 
@@ -354,12 +353,12 @@ const Bloomberg: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${
-                        ticker.is_live ? 'bg-green-500' : 'bg-orange-500'
+                        ticker.is_live ? 'bg-green-500' : 'bg-gray-400'
                       }`} />
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        ticker.is_live ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                        ticker.is_live ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {ticker.is_live ? 'LIVE' : 'DUMMY'}
+                        {ticker.is_live ? 'LIVE' : 'OFFLINE'}
                       </span>
                     </div>
                   </td>

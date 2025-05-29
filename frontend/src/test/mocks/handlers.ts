@@ -1,150 +1,83 @@
 import { http, HttpResponse } from 'msw';
-import type { TickerData, HistoricalData, MarketStatus } from '../../api/client';
 
-// Base URL for API
-const API_URL = 'http://localhost:8000';
-
-// Mock data
-export const mockTickerData: TickerData[] = [
-  {
-    symbol: 'LMCADS03',
-    description: 'LME Copper 3M',
-    product_category: 'CA',
-    px_last: 8500.50,
-    change: 25.30,
-    change_pct: 0.30,
-    timestamp: new Date().toISOString()
-  },
-  {
-    symbol: 'LMAHDS03',
-    description: 'LME Aluminum 3M',
-    product_category: 'AH',
-    px_last: 2200.75,
-    change: -15.25,
-    change_pct: -0.69,
-    timestamp: new Date().toISOString()
-  },
-  {
-    symbol: 'LMZSDS03',
-    description: 'LME Zinc 3M',
-    product_category: 'ZN',
-    px_last: 2800.00,
-    change: 12.50,
-    change_pct: 0.45,
-    timestamp: new Date().toISOString()
-  }
-];
-
-export const mockMarketStatus: MarketStatus = {
-  is_open: true,
-  message: 'Market open',
-  next_close: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString() // 5 hours from now
-};
-
-export const mockHistoricalData: HistoricalData = {
-  symbol: 'LMCADS03',
-  data_points: Array.from({ length: 30 }, (_, i) => ({
-    date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    price: 8500 + Math.random() * 200 - 100
-  })),
-  start_date: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  end_date: new Date().toISOString().split('T')[0]
-};
-
-// Define handlers
 export const handlers = [
-  // Ping endpoint
-  http.get(`${API_URL}/ping/`, () => {
+  // Health check endpoint
+  http.get('/api/health', () => {
     return HttpResponse.json({
-      message: 'Hello from FastAPI!',
-      status: 'ok'
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      environment: {
+        python_version: '3.12.0',
+        platform: 'Windows',
+      },
+      bloomberg: {
+        bloomberg_available: true,
+        is_connected: true,
+        status: 'connected',
+        message: 'Connected to Bloomberg Terminal'
+      },
+      mode: 'live_bloomberg_only',
     });
   }),
 
-  // Health check
-  http.get(`${API_URL}/health/`, () => {
+  // LME tickers endpoint
+  http.get('/api/lme/tickers', () => {
+    return HttpResponse.json([
+      {
+        id: 1,
+        ticker: 'LMCADS03',
+        description: 'Copper 3 Month',
+        metal: 'Copper',
+        symbol: 'CA',
+        bloomberg_symbol: 'LMCADS03 COMDTY',
+        px_last: 9568.0,
+        change: 45.5,
+        change_pct: 0.48,
+        timestamp: new Date().toISOString(),
+        is_live: true,
+      },
+      {
+        id: 2,
+        ticker: 'LMAHDS03',
+        description: 'Aluminum 3 Month',
+        metal: 'Aluminum',
+        symbol: 'AH',
+        bloomberg_symbol: 'LMAHDS03 COMDTY',
+        px_last: 2450.5,
+        change: -12.0,
+        change_pct: -0.49,
+        timestamp: new Date().toISOString(),
+        is_live: true,
+      },
+    ]);
+  }),
+
+  // Market status endpoint
+  http.get('/api/lme/market-status', () => {
     return HttpResponse.json({
-      status: 'ok',
-      database: { status: 'healthy' }
+      is_open: true,
+      exchange: 'LME',
+      current_time: new Date().toISOString(),
+      message: 'LME Market Open',
+      trading_hours: '01:00-19:00 GMT (Mon-Fri)',
     });
   }),
 
-  // Latest prices
-  http.get(`${API_URL}/prices/latest`, ({ request }) => {
-    const url = new URL(request.url);
-    const includePrecious = url.searchParams.get('include_precious') === 'true';
-    
-    const data = [...mockTickerData];
-    
-    if (includePrecious) {
-      data.push({
-        symbol: 'XAU=',
-        description: 'Gold Spot',
-        product_category: 'PM',
-        px_last: 2050.00,
-        change: 15.00,
-        change_pct: 0.74,
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-    return HttpResponse.json(data);
-  }),
-
-  // Market status
-  http.get(`${API_URL}/prices/market-status`, () => {
-    return HttpResponse.json(mockMarketStatus);
-  }),
-
-  // Historical prices
-  http.get(`${API_URL}/prices/historical/:symbol`, ({ params }) => {
-    const { symbol } = params;
+  // Add ticker endpoint
+  http.post('/api/lme/tickers/add', () => {
     return HttpResponse.json({
-      ...mockHistoricalData,
-      symbol: symbol as string
+      status: 'success',
+      message: 'Successfully added ticker',
+      ticker_id: '3',
     });
   }),
 
-  // Available symbols
-  http.get(`${API_URL}/prices/symbols`, () => {
+  // Delete ticker endpoint
+  http.delete('/api/lme/tickers/:id', () => {
     return HttpResponse.json({
-      base_metals: [
-        { symbol: 'LMCADS03', description: 'LME Copper 3M', category: 'CA' },
-        { symbol: 'LMAHDS03', description: 'LME Aluminum 3M', category: 'AH' },
-        { symbol: 'LMZSDS03', description: 'LME Zinc 3M', category: 'ZN' }
-      ],
-      precious_metals: [
-        { symbol: 'XAU=', description: 'Gold Spot', category: 'PM' },
-        { symbol: 'XAG=', description: 'Silver Spot', category: 'PM' }
-      ]
+      status: 'success',
+      message: 'Ticker deleted successfully',
     });
   }),
-
-  // Settings - data source status
-  http.get(`${API_URL}/settings/data-source-status`, () => {
-    return HttpResponse.json({
-      use_dummy_data: true,
-      bloomberg_available: false,
-      data_source: 'dummy_data',
-      message: 'Using dummy data for development'
-    });
-  }),
-
-  // Settings - update settings
-  http.put(`${API_URL}/settings/`, () => {
-    return HttpResponse.json({
-      message: 'Settings updated successfully'
-    });
-  })
-];
-
-// Error handlers for testing error scenarios
-export const errorHandlers = [
-  http.get(`${API_URL}/prices/latest`, () => {
-    return HttpResponse.error();
-  }),
-  
-  http.get(`${API_URL}/prices/market-status`, () => {
-    return HttpResponse.error();
-  })
 ]; 

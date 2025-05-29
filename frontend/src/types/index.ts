@@ -12,12 +12,16 @@ export enum ProductCategory {
 // Base ticker interface
 export interface Ticker {
   id: number;
-  symbol: string;
+  ticker: string;
   description: string;
-  product_category: ProductCategory;
-  is_custom: boolean;
-  created_at: string;
-  updated_at?: string;
+  metal: string;
+  symbol: string;
+  bloomberg_symbol: string;
+  px_last?: number;
+  change?: number;
+  change_pct?: number;
+  timestamp?: string;
+  is_live: boolean;
 }
 
 // Price data interface
@@ -119,4 +123,29 @@ export interface Settings {
   polling_interval_minutes: number;
   theme: Theme;
   database_path: string;
+}
+
+export interface MarketStatus {
+  is_open: boolean;
+  exchange: string;
+  current_time: string;
+  message: string;
+  trading_hours: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  timestamp: string;
+  version: string;
+  environment: {
+    python_version: string;
+    platform: string;
+  };
+  bloomberg: {
+    bloomberg_available: boolean;
+    is_connected: boolean;
+    status: string;
+    message: string;
+  };
+  mode: string;
 } 

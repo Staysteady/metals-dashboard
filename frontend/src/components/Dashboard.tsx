@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity } from 'lucide-react';
-import { api, type TickerData, type MarketStatus } from '../api/client';
+import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity, BarChart3 } from 'lucide-react';
+import { getLMETickers, getMarketStatus, type Ticker, type MarketStatus } from '../api/client';
 import BloombergStatus from './DataSourceToggle';
 
 interface GroupedData {
-  [category: string]: TickerData[];
+  [category: string]: Ticker[];
 }
 
 const Dashboard: React.FC = () => {
-  const [tickerData, setTickerData] = useState<TickerData[]>([]);
+  const [tickerData, setTickerData] = useState<Ticker[]>([]);
   const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,28 +18,18 @@ const Dashboard: React.FC = () => {
     try {
       setError(null);
       const [pricesData, statusData] = await Promise.all([
-        api.getLatestPrices(includePrecious),
-        api.getMarketStatus()
+        getLMETickers(true),
+        getMarketStatus()
       ]);
       setTickerData(pricesData);
       setMarketStatus(statusData);
     } catch (err: unknown) {
       console.error('Error fetching data:', err);
-      
-      if (err && typeof err === 'object' && 'response' in err) {
-        const errorWithResponse = err as { response?: { status?: number; data?: { detail?: string } } };
-        if (errorWithResponse.response?.status === 500 && errorWithResponse.response?.data?.detail) {
-          setError(`API Error: ${errorWithResponse.response.data.detail}`);
-        } else {
-          setError('Failed to fetch market data');
-        }
-      } else {
-        setError('Failed to fetch market data');
-      }
+      setError('Failed to fetch market data');
     } finally {
       setLoading(false);
     }
-  }, [includePrecious]);
+  }, []);
 
   const handleDataSourceChange = useCallback(() => {
     setLoading(true);
@@ -179,7 +169,7 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        <BloombergStatus onDataSourceChange={handleDataSourceChange} />
+        <BloombergStatus onStatusChange={handleDataSourceChange} />
 
         <div className="flex items-center gap-4 mb-4">
           <label className="flex items-center gap-2 cursor-pointer">

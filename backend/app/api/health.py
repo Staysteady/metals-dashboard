@@ -1,8 +1,12 @@
 import logging
 import os
+import platform
+from datetime import datetime
 from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException
+
+from app.services.bloomberg_service import bloomberg_service
 
 logger = logging.getLogger(__name__)
 
@@ -10,27 +14,23 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("/")
-async def health_check_endpoint() -> Dict[str, Any]:
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint"""
-    try:
-        from ..db.connection import health_check
-
-        # Get database health
-        db_health = health_check()
-
-        # Determine if using dummy data
-        use_dummy_data = os.getenv("USE_DUMMY_DATA", "true").lower() == "true"
-
-        return {
-            "status": "healthy",
-            "service": "Metals Dashboard API",
-            "phase": "3",
-            "mode": "dummy_data" if use_dummy_data else "bloomberg",
-            "database": db_health,
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unavailable")
+    
+    # Get Bloomberg connection status
+    bloomberg_status = bloomberg_service.get_connection_status()
+    
+    return {
+        "status": "healthy" if bloomberg_status["is_connected"] else "degraded",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "environment": {
+            "python_version": platform.python_version(),
+            "platform": platform.system(),
+        },
+        "bloomberg": bloomberg_status,
+        "mode": "live_bloomberg_only",  # Only live data supported
+    }
 
 
 @router.get("/db")

@@ -41,7 +41,7 @@ frontend/
 │   │   └── Portfolio.tsx         # Portfolio management page
 │   ├── components/               # Reusable UI components
 │   │   ├── Layout.tsx           # Application layout wrapper
-│   │   ├── DataSourceToggle.tsx # Bloomberg/Dummy data toggle
+│   │   ├── BloombergStatus.tsx  # Bloomberg connection status
 │   │   ├── charts/              # Chart components
 │   │   │   ├── PriceHistoryChart.tsx
 │   │   │   ├── CurrentPricesChart.tsx
@@ -107,7 +107,7 @@ npm run type-check   # Run TypeScript type checking
 - **Interactive charts** using Plotly.js
 - **Data table** with sortable columns
 - **Market status indicators**
-- **Data source toggle** (Bloomberg vs Dummy)
+- **Bloomberg connection status**
 
 #### Portfolio.tsx
 - **Portfolio overview** with holdings
@@ -122,9 +122,9 @@ npm run type-check   # Run TypeScript type checking
 - **Responsive design** for mobile and desktop
 - **Common header and footer**
 
-#### DataSourceToggle.tsx
-- **Switch between Bloomberg and dummy data**
-- **Visual indicators** for current data source
+#### BloombergStatus.tsx
+- **Bloomberg connection status indicator**
+- **Visual indicators** for current connection state
 - **Real-time status updates**
 
 #### Charts
@@ -164,7 +164,6 @@ VITE_API_BASE_URL=http://localhost:8000
 VITE_APP_TITLE=Metals Dashboard
 
 # Feature Flags
-VITE_ENABLE_BLOOMBERG=true
 VITE_UPDATE_INTERVAL=30000
 
 # Development
@@ -191,12 +190,12 @@ export default defineConfig({
 1. **Initial Load** - Fetch tickers and market status
 2. **Polling** - Update data every 30 seconds when market is open
 3. **Error Handling** - Graceful fallback to cached data
-4. **User Interactions** - Add/remove tickers, toggle data sources
+4. **User Interactions** - Add/remove tickers, view Bloomberg status
 
 ### State Management
 - **React State** for component-level state
 - **Custom hooks** for data fetching and caching
-- **Context API** for global state (market status, data source)
+- **Context API** for global state (market status, Bloomberg connection)
 
 ## 🎨 Styling
 

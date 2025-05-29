@@ -1,144 +1,77 @@
 import axios from 'axios';
 
-// Create axios instance with base configuration
-const API_BASE = import.meta.env.MODE === 'test' 
-  ? 'http://localhost:8000'  // Use absolute URL in tests for MSW
-  : '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
-// Types for API responses
-export interface HealthCheckResponse {
-  message: string;
-  status: string;
-  database: {
-    status: string;
-  };
-}
-
-export interface TickerData {
-  symbol: string;
+export interface Ticker {
+  id: number;
+  ticker: string;
   description: string;
-  product_category: string;
-  px_last: number;
-  change: number;
-  change_pct: number;
-  timestamp: string;
-}
-
-export interface HistoricalData {
+  metal: string;
   symbol: string;
-  data_points: Array<{
-    date: string;
-    price: number;
-  }>;
-  start_date: string;
-  end_date: string;
+  bloomberg_symbol: string;
+  px_last?: number;
+  change?: number;
+  change_pct?: number;
+  timestamp?: string;
+  is_live: boolean;
 }
 
 export interface MarketStatus {
   is_open: boolean;
+  exchange: string;
+  current_time: string;
   message: string;
-  next_close?: string;
-  next_open?: string;
+  trading_hours: string;
 }
 
-export interface SymbolInfo {
-  symbol: string;
-  description: string;
-  category: string;
+export interface HealthStatus {
+  status: string;
+  timestamp: string;
+  version: string;
+  environment: {
+    python_version: string;
+    platform: string;
+  };
+  bloomberg: {
+    bloomberg_available: boolean;
+    is_connected: boolean;
+    status: string;
+    message: string;
+  };
+  mode: string;
 }
 
-export interface AvailableSymbols {
-  base_metals: SymbolInfo[];
-  precious_metals: SymbolInfo[];
-}
+export const getLMETickers = async (includeLivePrices = true): Promise<Ticker[]> => {
+  const response = await apiClient.get(`/lme/tickers?include_live_prices=${includeLivePrices}`);
+  return response.data;
+};
 
-export interface SettingsResponse {
-  use_dummy_data: boolean;
-  bloomberg_available: boolean;
-  bloomberg_connected: boolean;
-}
+export const getMarketStatus = async (): Promise<MarketStatus> => {
+  const response = await apiClient.get('/lme/market-status');
+  return response.data;
+};
 
-export interface SettingsUpdate {
-  use_dummy_data: boolean;
-}
+export const getHealthStatus = async (): Promise<HealthStatus> => {
+  const response = await apiClient.get('/health');
+  return response.data;
+};
 
-export interface DataSourceStatus {
-  status: 'dummy' | 'bloomberg' | 'bloomberg_disconnected' | 'no_stream';
-  message: string;
-  use_dummy_data: boolean;
-  bloomberg_available: boolean;
-  bloomberg_connected: boolean;
-}
+export const addTicker = async (bloombergSymbol: string, description?: string): Promise<any> => {
+  const response = await apiClient.post('/lme/tickers/add', {
+    bloomberg_symbol: bloombergSymbol,
+    description,
+  });
+  return response.data;
+};
 
-// API methods
-export const api = {
-  // Health check
-  async ping(): Promise<HealthCheckResponse> {
-    const response = await apiClient.get<HealthCheckResponse>('/ping/');
-    return response.data;
-  },
-
-  // Get health status
-  async health(): Promise<HealthCheckResponse> {
-    const response = await apiClient.get<HealthCheckResponse>('/health/');
-    return response.data;
-  },
-
-  // Get latest prices
-  async getLatestPrices(includePrecious: boolean = false, symbols?: string[]): Promise<TickerData[]> {
-    const params = new URLSearchParams();
-    if (includePrecious) params.append('include_precious', 'true');
-    if (symbols && symbols.length > 0) {
-      symbols.forEach(symbol => params.append('symbols', symbol));
-    }
-    
-    const response = await apiClient.get<TickerData[]>('/prices/latest', { params });
-    return response.data;
-  },
-
-  // Get historical prices
-  async getHistoricalPrices(symbol: string, days: number = 30): Promise<HistoricalData> {
-    const response = await apiClient.get<HistoricalData>(`/prices/historical/${symbol}`, {
-      params: { days }
-    });
-    return response.data;
-  },
-
-  // Get market status
-  async getMarketStatus(): Promise<MarketStatus> {
-    const response = await apiClient.get<MarketStatus>('/prices/market-status');
-    return response.data;
-  },
-
-  // Get available symbols
-  async getAvailableSymbols(): Promise<AvailableSymbols> {
-    const response = await apiClient.get<AvailableSymbols>('/prices/symbols');
-    return response.data;
-  },
-
-  // Settings endpoints
-  async getSettings(): Promise<SettingsResponse> {
-    const response = await apiClient.get<SettingsResponse>('/settings/');
-    return response.data;
-  },
-
-  async updateSettings(settings: SettingsUpdate): Promise<SettingsResponse> {
-    const response = await apiClient.put<SettingsResponse>('/settings/', settings);
-    return response.data;
-  },
-
-  async getDataSourceStatus(): Promise<DataSourceStatus> {
-    const response = await apiClient.get<DataSourceStatus>('/settings/data-source-status');
-    return response.data;
-  }
+export const deleteTicker = async (tickerId: number): Promise<any> => {
+  const response = await apiClient.delete(`/lme/tickers/${tickerId}`);
+  return response.data;
 };
 
 export default apiClient; 

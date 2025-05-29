@@ -89,7 +89,7 @@ async def get_lme_tickers_with_prices(
                 change=price_info.get("change"),
                 change_pct=price_info.get("change_pct"),
                 timestamp=datetime.now(timezone.utc) if price_info else None,
-                is_live=bool(price_info and not bloomberg_service._use_dummy_data)
+                is_live=bool(price_info)  # All data is live since dummy data is removed
             ))
         
         return result
@@ -110,34 +110,20 @@ async def add_bloomberg_ticker(request: AddTickerRequest) -> Dict[str, str]:
         logger.info(f"Validating Bloomberg ticker: {request.bloomberg_symbol}")
         
         # Try to get data from Bloomberg to validate ticker
-        test_data = bloomberg_service.get_real_time_data([request.bloomberg_symbol])
+        price_data = bloomberg_service.get_real_time_data([request.bloomberg_symbol])
         
-        # In live Bloomberg mode, we need valid price data to consider ticker valid
-        # In dummy mode, we're more permissive and accept reasonable ticker formats
-        if bloomberg_service._use_dummy_data:
-            # In dummy mode, accept the ticker if we got any response data
-            if not test_data:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Invalid Bloomberg ticker: {request.bloomberg_symbol}. Ticker format not recognized."
-                )
-            validation_passed = True
-            bloomberg_data = test_data[0]
-        else:
-            # In live Bloomberg mode, require actual price data for validation
-            if not test_data or not test_data[0].get("px_last"):
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Invalid Bloomberg ticker: {request.bloomberg_symbol}. Ticker not found or no price data available from Bloomberg API."
-                )
-            validation_passed = True
-            bloomberg_data = test_data[0]
+        # Require valid price data from Bloomberg to consider ticker valid
+        if not price_data or not price_data[0] or price_data[0].get("px_last") is None:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid Bloomberg ticker: {request.bloomberg_symbol}. Ticker not found or no price data available from Bloomberg API."
+            )
         
         # Extract metadata from Bloomberg response or use provided values
-        description = request.description or bloomberg_data.get("description", f"{request.bloomberg_symbol} Price")
+        description = request.description or price_data[0].get("description", f"{request.bloomberg_symbol} Price")
         
         # Use Bloomberg category if available, otherwise use provided or default to "OTHER"
-        product_category = bloomberg_data.get("product_category") or request.symbol or "OTHER"
+        product_category = price_data[0].get("product_category") or request.symbol or "OTHER"
         
         # Check if ticker already exists
         existing_ticker = ticker_service.get_ticker_by_symbol(request.bloomberg_symbol)
@@ -163,7 +149,7 @@ async def add_bloomberg_ticker(request: AddTickerRequest) -> Dict[str, str]:
             "message": f"Successfully added ticker {request.bloomberg_symbol}",
             "ticker_id": str(new_ticker.id),
             "description": description,
-            "current_price": str(bloomberg_data.get("px_last", "N/A"))
+            "current_price": str(price_data[0].get("px_last", "N/A"))
         }
         
     except HTTPException:
