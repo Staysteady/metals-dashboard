@@ -1,0 +1,161 @@
+## 1. Settings Pane
+
+1. **As a user, I want to configure Bloomberg mode**
+
+   * **Goal:** toggle between real‐time (blpapi) and dummy data
+   * **Benefit:** develop offline or avoid API limits
+   * **Acceptance:** setting persists; backend reads `USE_DUMMY_DATA` flag
+
+2. **As a user, I want to set the data-polling interval**
+
+   * **Goal:** choose how often alerts run (e.g. every 15 min)
+   * **Benefit:** balance timeliness vs. resource use
+   * **Acceptance:** scheduler respects interval; changing it takes effect immediately
+
+3. **As a user, I want to choose dark or light theme**
+
+   * **Goal:** match my visual preference and reduce eye strain
+   * **Benefit:** comfortable long-term use
+   * **Acceptance:** theme applies across all pages and persists on restart
+
+4. **As a user, I want to specify the database file path**
+
+   * **Goal:** control where DuckDB stores data
+   * **Benefit:** manage disk usage and backups
+   * **Acceptance:** app reads/writes to chosen path; warns if inaccessible
+
+---
+
+## 2. Sidebar & Navigation
+
+5. **As a user, I want a collapsible sidebar with icons and labels**
+
+   * **Goal:** switch quickly between pages (Dashboard, Settlement, Tickers, Alerts, Settings)
+   * **Benefit:** efficient workflow without clutter
+   * **Acceptance:** hover tooltips appear when collapsed; active page highlighted
+
+---
+
+## 3. Tickers & Instruments Management
+
+6. **As a user, I want a pre-populated list of common tickers that I can extend on the fly**
+
+   * **Goal:** avoid retyping frequently used Bloomberg codes and add new tickers with description and product category (e.g. AH, CA, ALL) directly in the UI
+   * **Benefit:** faster instrument selection and on-the-fly additions persist for future sessions
+   * **Acceptance:** list loads on startup; users can search/filter; if a ticker isn’t present, I can add it with a description and select its related product category, and it is saved to DuckDB immediately
+
+7. **As a user, I want to define a custom “switch” instrument** **As a user, I want to define a custom “switch” instrument**
+
+   * **Goal:** create e.g. Zinc–Lead price differential
+   * **Benefit:** compare relative moves easily
+   * **Acceptance:** instrument saved to DuckDB; behaves like a native ticker in charts and alerts
+
+8. **As a user, I want to create a weighted index**
+
+   * **Goal:** combine metals with user-defined weights (e.g. 10% Zn, 50% Al)
+   * **Benefit:** track bespoke portfolio performance
+   * **Acceptance:** index formula saved; data calculated on load; visible in ticker list
+
+9. **As a user, I want to edit or delete custom instruments**
+
+   * **Goal:** refine or remove obsolete definitions
+   * **Benefit:** keep my list relevant
+   * **Acceptance:** changes persist; references in alerts update accordingly
+
+---
+
+## 4. Charting Dashboard
+
+10. **As a user, I want to select a metal/product and contract via dropdowns**
+
+    * **Goal:** choose e.g. Copper → 3 m contract
+    * **Benefit:** intuitive instrument selection
+    * **Acceptance:** available options reflect pre-populated list and customs
+
+11. **As a user, I want to pick a “from” and “to” date**
+
+    * **Goal:** visualise any visible range
+    * **Benefit:** flexible historical analysis
+    * **Acceptance:** date pickers prevent invalid ranges; default to last 30 days
+
+12. **As a user, I want to click “Load Data” and see the chart**
+
+    * **Goal:** fetch via blpapi up to its maximum historical limit, then pull older data from DuckDB as needed, and render a Plotly graph
+    * **Benefit:** seamless combination of real-time and extended history beyond Bloomberg’s 140‑day limit
+    * **Acceptance:** loading spinner appears; errors show a message; blpapi is used first for available date range, and any dates beyond that automatically query DuckDB cache13. **As a user, I want to overlay up to four instruments on the same axes**
+    * **Goal:** compare price movements directly
+    * **Benefit:** multi-series analysis without context switching
+    * **Acceptance:** legends distinguish series; colours auto-assigned; axes auto-scaled
+
+13. **As a user, I want to “Add to new pane”**
+
+    * **Goal:** stack another chart below the original
+    * **Benefit:** separate scales for disparate price levels
+    * **Acceptance:** new pane appears; retains all selectors; independent axis scaling
+
+14. **As a user, I want manual axis adjustment**
+
+    * **Goal:** fine-tune zoom or focus on a sub-range
+    * **Benefit:** detailed inspection of specific moves
+    * **Acceptance:** Plotly’s drag/zoom works; reset-axes button resets to auto-scale
+
+---
+
+## 5. Settlement Prices Page
+
+16. **As a user, I want an “All-Metals” matrix view**
+
+    * **Goal:** see px\_last for every prompt month (row) × metal (col)
+    * **Benefit:** quick cross-metal comparison
+    * **Acceptance:** headers show month labels; cells update daily
+
+17. **As a user, I want per-metal tabs with live and historical settles**
+
+    * **Goal:** focus on a single metal’s prompt series
+    * **Benefit:** detailed settlement analysis
+    * **Acceptance:** “Live” shows current px\_last; “Settle” toggle reveals historic columns (T-n dates); date-range selector works
+
+---
+
+## 6. Alerts Engine
+
+18. **As a user, I want to create an alert on any ticker/instrument**
+
+    * **Goal:** specify conditions (e.g. price change > 5%, price ≥ X)
+    * **Benefit:** proactive monitoring of critical levels
+    * **Acceptance:** form validates inputs; saved alerts appear in list
+
+19. **As a user, I want alerts evaluated every 15 minutes**
+
+    * **Goal:** minimal latency for important moves
+    * **Benefit:** timely notifications
+    * **Acceptance:** scheduler triggers checks on time; UI shows last run timestamp
+
+20. **As a user, I want a desktop pop-up when an alert fires**
+
+    * **Goal:** get immediate, visible notification
+    * **Benefit:** no need to keep checking the app
+    * **Acceptance:** pop-up summarises ticker, condition, actual value; ack/dismiss options
+
+21. **As a user, I want to enable, disable, edit or delete alerts**
+
+    * **Goal:** manage my alert suite as priorities change
+    * **Benefit:** avoid noise and maintain focus
+    * **Acceptance:** toggles and actions update scheduler state immediately
+
+---
+
+## 7. Data Persistence & Maintenance
+
+22. **As a user, I want the app to append daily settlement data**
+
+    * **Goal:** maintain > 140 days of history despite Bloomberg limits
+    * **Benefit:** long-term trend analysis
+    * **Acceptance:** background task runs at EOD; DuckDB file grows accordingly
+
+23. **As a user, I want startup health-check and data-integrity warnings**
+
+    * **Goal:** ensure the app and DB are ready
+    * **Benefit:** avoid silent failures
+    * **Acceptance:** on launch, backend pings DB, checks last append date and reports issues in UI
+

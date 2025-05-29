@@ -1,0 +1,11 @@
+# Linting and Formatting
+black==24.10.0
+flake8==7.1.1
+isort==5.13.2
+mypy==1.11.2
+
+# Testing
+pytest-cov==5.0.0
+
+# Pre-commit hooks
+pre-commit==4.0.1 

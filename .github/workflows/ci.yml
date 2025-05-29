@@ -1,0 +1,115 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        python-version: [3.11, 3.12]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        npm install
+        cd backend
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        cd ../frontend
+        npm install
+
+    - name: Lint Backend
+      run: |
+        cd backend
+        source venv/bin/activate
+        flake8 app tests
+        mypy app
+
+    - name: Lint Frontend
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Test Backend
+      run: |
+        cd backend
+        source venv/bin/activate
+        PYTHONPATH=. pytest --cov --cov-report=xml
+
+    - name: Test Frontend
+      run: |
+        cd frontend
+        npm test -- --run
+
+    - name: Upload Backend Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: Build Frontend
+      run: |
+        cd frontend
+        npm run build
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run npm audit
+      run: |
+        cd frontend
+        npm audit --audit-level moderate
+        
+    - name: Run Python security scan
+      run: |
+        cd backend
+        python -m venv venv
+        source venv/bin/activate
+        pip install safety
+        safety check
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+        
+    - name: TypeScript type check
+      run: |
+        cd frontend
+        npx tsc --noEmit 
