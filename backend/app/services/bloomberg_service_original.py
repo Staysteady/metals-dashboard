@@ -7,31 +7,19 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-# Bloomberg API imports - try both blpapi and xbbg
+# Bloomberg API imports
 BLOOMBERG_AVAILABLE = False
-BLOOMBERG_TYPE = None
-
-# First try official blpapi
 try:
     import blpapi
     BLOOMBERG_AVAILABLE = True
-    BLOOMBERG_TYPE = "blpapi"
     BLPAPI_ROOT = os.getenv("BLPAPI_ROOT", "")
     if BLPAPI_ROOT:
-        logger.info(f"Bloomberg API (blpapi) available at {BLPAPI_ROOT}")
+        logger.info(f"Bloomberg API available at {BLPAPI_ROOT}")
     else:
-        logger.info("Bloomberg API (blpapi) available (BLPAPI_ROOT not set, using system default)")
+        logger.info("Bloomberg API available (BLPAPI_ROOT not set, using system default)")
 except ImportError:
-    logger.info("Official blpapi not available, trying xbbg...")
-    # Try xbbg as fallback
-    try:
-        from xbbg import blp
-        BLOOMBERG_AVAILABLE = True
-        BLOOMBERG_TYPE = "xbbg"
-        logger.info("Bloomberg API available via xbbg")
-    except ImportError:
-        logger.warning("Neither blpapi nor xbbg available - Bloomberg API not available")
-        BLOOMBERG_AVAILABLE = False
+    logger.warning("Bloomberg API not available - blpapi package not found")
+    BLOOMBERG_AVAILABLE = False
 
 
 class BloombergService:
@@ -44,32 +32,14 @@ class BloombergService:
         
         if BLOOMBERG_AVAILABLE:
             try:
-                if BLOOMBERG_TYPE == "blpapi":
-                    self._initialize_bloomberg()
-                else:
-                    # xbbg doesn't need initialization
-                    self._is_connected = self._test_xbbg_connection()
-                    if not self._is_connected:
-                        self._startup_error = "xbbg could not connect to Bloomberg Terminal"
+                self._initialize_bloomberg()
             except Exception as e:
                 logger.warning(f"Bloomberg initialization failed: {e}")
                 self._startup_error = str(e)
                 self._is_connected = False
         else:
             logger.warning("Bloomberg API not available - application will run in limited mode")
-            self._startup_error = "Neither blpapi nor xbbg package available"
-
-    def _test_xbbg_connection(self) -> bool:
-        """Test if xbbg can connect to Bloomberg"""
-        try:
-            from xbbg import blp
-            # Try a simple request
-            data = blp.bdp(tickers='GOVT US Equity', flds='PX_LAST')
-            logger.info("xbbg connection test successful")
-            return True
-        except Exception as e:
-            logger.error(f"xbbg connection test failed: {e}")
-            return False
+            self._startup_error = "Bloomberg API package not available"
 
     @property
     def db(self) -> Any:
@@ -78,9 +48,10 @@ class BloombergService:
         return get_db()
 
     def _initialize_bloomberg(self) -> None:
-        """Initialize Bloomberg API connection (for blpapi only)"""
-        if BLOOMBERG_TYPE != "blpapi":
-            return
+        """Initialize Bloomberg API connection"""
+        if not BLOOMBERG_AVAILABLE:
+            logger.error("Bloomberg API not available")
+            raise RuntimeError("Bloomberg API is required for live data feeds")
             
         try:
             # Session options
@@ -117,7 +88,6 @@ class BloombergService:
         """Get the current Bloomberg connection status"""
         return {
             "bloomberg_available": BLOOMBERG_AVAILABLE,
-            "bloomberg_type": BLOOMBERG_TYPE,
             "is_connected": self._is_connected,
             "status": "connected" if self._is_connected else "disconnected",
             "message": self._get_status_message()
@@ -128,11 +98,11 @@ class BloombergService:
         if self._startup_error:
             return f"Bloomberg startup failed: {self._startup_error}"
         elif not BLOOMBERG_AVAILABLE:
-            return "Bloomberg API package not installed. Install with: pip install blpapi or pip install xbbg"
+            return "Bloomberg API package not installed. Install with: pip install blpapi"
         elif not self._is_connected:
             return "Bloomberg Terminal not available. Ensure Terminal is running and logged in."
         else:
-            return f"Connected to Bloomberg Terminal via {BLOOMBERG_TYPE}"
+            return "Connected to Bloomberg Terminal"
 
     def _cache_real_time_data(self, data: List[Dict[str, Any]]) -> None:
         """Cache real-time data in DuckDB"""
@@ -193,6 +163,82 @@ class BloombergService:
         except Exception as e:
             logger.error(f"Error caching real-time data: {e}")
 
+    def _cache_historical_data(self, symbol: str, data: List[Dict[str, Any]]) -> None:
+        """Cache historical data in DuckDB"""
+        try:
+            conn = self.db.get_connection()
+
+            # Get ticker ID
+            ticker_result = conn.execute(
+                "SELECT id FROM tickers WHERE symbol = ?", [symbol]
+            ).fetchone()
+
+            if not ticker_result:
+                logger.warning(f"Ticker {symbol} not found for caching historical data")
+                return
+
+            ticker_id = ticker_result[0]
+
+            # Insert historical data
+            for item in data:
+                date = datetime.strptime(item["date"], "%Y-%m-%d")
+                max_price_id = conn.execute(
+                    "SELECT COALESCE(MAX(id), 0) + 1 FROM price_data"
+                ).fetchone()[0]
+
+                conn.execute(
+                    """
+                    INSERT INTO price_data (id, ticker_id, symbol, date, px_last)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (ticker_id, date) DO UPDATE SET
+                        px_last = excluded.px_last
+                """,
+                    [max_price_id, ticker_id, symbol, date, item["price"]],
+                )
+
+            logger.info(f"Cached {len(data)} historical records for {symbol}")
+
+        except Exception as e:
+            logger.error(f"Error caching historical data: {e}")
+
+    def _get_cached_historical_data(
+        self, symbol: str, start_date: datetime, end_date: datetime
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Try to get historical data from cache"""
+        try:
+            conn = self.db.get_connection()
+
+            result = conn.execute(
+                """
+                SELECT date, px_last
+                FROM price_data pd
+                JOIN tickers t ON pd.ticker_id = t.id
+                WHERE t.symbol = ?
+                AND date >= ?
+                AND date <= ?
+                ORDER BY date
+            """,
+                [symbol, start_date, end_date],
+            ).fetchall()
+
+            if result:
+                # Check if we have data for most days (at least 80% coverage)
+                expected_days = (end_date - start_date).days + 1
+                if len(result) >= expected_days * 0.8:
+                    logger.info(
+                        f"Using cached data for {symbol}: {len(result)} records"
+                    )
+                    return [
+                        {"date": row[0].strftime("%Y-%m-%d"), "price": row[1]}
+                        for row in result
+                    ]
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error reading cached data: {e}")
+            return None
+
     def get_real_time_data(self, symbols: List[str]) -> List[Dict[str, Any]]:
         """Get real-time price data for given symbols"""
         if not BLOOMBERG_AVAILABLE or self._startup_error:
@@ -201,25 +247,18 @@ class BloombergService:
 
         if not self._is_connected:
             logger.warning("Bloomberg not connected, attempting to reconnect...")
-            if BLOOMBERG_TYPE == "blpapi":
-                try:
-                    self._initialize_bloomberg()
-                except Exception as e:
-                    logger.error(f"Failed to reconnect to Bloomberg: {e}")
-                    return []
-            else:
-                self._is_connected = self._test_xbbg_connection()
+            try:
+                self._initialize_bloomberg()
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Bloomberg: {e}")
+                return []
             
             if not self._is_connected:
                 logger.error("Failed to connect to Bloomberg Terminal")
                 return []
 
         try:
-            if BLOOMBERG_TYPE == "blpapi":
-                data = self._get_bloomberg_real_time_data(symbols)
-            else:
-                data = self._get_xbbg_real_time_data(symbols)
-                
+            data = self._get_bloomberg_real_time_data(symbols)
             if data:
                 self._cache_real_time_data(data)
             return data
@@ -227,56 +266,8 @@ class BloombergService:
             logger.error(f"Error fetching real-time data from Bloomberg: {e}")
             return []
 
-    def _get_xbbg_real_time_data(self, symbols: List[str]) -> List[Dict[str, Any]]:
-        """Get real-time data using xbbg"""
-        from xbbg import blp
-        
-        results = []
-        try:
-            # xbbg needs specific ticker format with asset class
-            formatted_symbols = []
-            for symbol in symbols:
-                if not any(suffix in symbol for suffix in [' Comdty', ' Curncy', ' Equity', ' Index']):
-                    # Default to Comdty for metals
-                    formatted_symbols.append(f"{symbol} Comdty")
-                else:
-                    formatted_symbols.append(symbol)
-            
-            # Request data
-            fields = ['PX_LAST', 'NAME', 'CHG_NET_1D', 'CHG_PCT_1D']
-            data = blp.bdp(tickers=formatted_symbols, flds=fields)
-            
-            logger.info(f"xbbg returned data for {len(data)} symbols")
-            
-            # Convert to expected format
-            for ticker, row in data.iterrows():
-                result = {
-                    "symbol": ticker,
-                    "px_last": float(row.get('PX_LAST', 0)) if row.get('PX_LAST') is not None else 0.0,
-                    "change": float(row.get('CHG_NET_1D', 0)) if row.get('CHG_NET_1D') is not None else 0.0,
-                    "change_pct": float(row.get('CHG_PCT_1D', 0)) if row.get('CHG_PCT_1D') is not None else 0.0,
-                    "description": str(row.get('NAME', '')),
-                    "product_category": self._get_product_category(ticker),
-                }
-                results.append(result)
-                logger.info(f"Retrieved data for {ticker}: {result['px_last']}")
-                
-        except Exception as e:
-            logger.error(f"Error processing xbbg response: {e}")
-            
-        return results
-
-    def _get_product_category(self, symbol: str) -> str:
-        """Determine product category from symbol"""
-        if any(metal in symbol.upper() for metal in ['XAU', 'XAG', 'XPT', 'XPD', 'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM']):
-            return "PRECIOUS"
-        elif any(metal in symbol.upper() for metal in ['LM', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'LEAD', 'TIN']):
-            return "BASE"
-        else:
-            return "OTHER"
-
     def _get_bloomberg_real_time_data(self, symbols: List[str]) -> List[Dict[str, Any]]:
-        """Get real-time data from Bloomberg API (blpapi)"""
+        """Get real-time data from Bloomberg API"""
         if not self._session:
             raise RuntimeError("Bloomberg session not available")
 
@@ -365,73 +356,97 @@ class BloombergService:
         self, symbol: str, start_date: datetime, end_date: datetime
     ) -> List[Dict[str, Any]]:
         """Get historical price data for a symbol"""
+        # First check cache
+        cached_data = self._get_cached_historical_data(symbol, start_date, end_date)
+        if cached_data:
+            return cached_data
+
         if not BLOOMBERG_AVAILABLE or self._startup_error:
             logger.warning("Bloomberg API not available for historical data - returning empty data")
             return []
 
         if not self._is_connected:
-            logger.warning("Bloomberg not connected for historical data")
-            return []
+            logger.warning("Bloomberg not connected for historical data, attempting to reconnect...")
+            try:
+                self._initialize_bloomberg()
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Bloomberg for historical data: {e}")
+                return []
+            
+            if not self._is_connected:
+                logger.error("Failed to connect to Bloomberg Terminal for historical data")
+                return []
 
         try:
-            if BLOOMBERG_TYPE == "xbbg":
-                return self._get_xbbg_historical_data(symbol, start_date, end_date)
-            else:
-                # Original blpapi implementation
-                return self._get_blpapi_historical_data(symbol, start_date, end_date)
-        except Exception as e:
-            logger.error(f"Error fetching historical data: {e}")
-            return []
+            # Bloomberg API historical data request
+            if not self._session:
+                raise RuntimeError("Bloomberg session not available")
 
-    def _get_xbbg_historical_data(
-        self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[Dict[str, Any]]:
-        """Get historical data using xbbg"""
-        from xbbg import blp
-        
-        try:
-            # Format symbol if needed
-            if not any(suffix in symbol for suffix in [' Comdty', ' Curncy', ' Equity', ' Index']):
-                symbol = f"{symbol} Comdty"
+            # Get the reference data service
+            service = self._session.getService("//blp/refdata")
             
-            # Get historical data
-            data = blp.bdh(
-                tickers=symbol,
-                flds='PX_LAST',
-                start_date=start_date.strftime('%Y%m%d'),
-                end_date=end_date.strftime('%Y%m%d')
-            )
-            
+            # Use appropriate request type based on available service
+            request_type = "HistoricalDataRequest"
+            request = service.createRequest(request_type)
+
+            request.getElement("securities").appendValue(symbol)
+            request.getElement("fields").appendValue("PX_LAST")
+            request.set("startDate", start_date.strftime("%Y%m%d"))
+            request.set("endDate", end_date.strftime("%Y%m%d"))
+            request.set("periodicitySelection", "DAILY")
+
+            logger.info(f"Requesting historical data for {symbol} from {start_date.date()} to {end_date.date()}")
+            self._session.sendRequest(request)
+
+            # Process response
             results = []
-            if not data.empty:
-                # Flatten multi-level columns if present
-                if isinstance(data.columns, pd.MultiIndex):
-                    data.columns = [col[1] for col in data.columns]
-                
-                for date, row in data.iterrows():
-                    results.append({
-                        "date": date.strftime("%Y-%m-%d"),
-                        "price": float(row.get('PX_LAST', 0))
-                    })
-            
-            logger.info(f"Retrieved {len(results)} historical data points for {symbol}")
-            return results
-            
-        except Exception as e:
-            logger.error(f"Error fetching historical data from xbbg: {e}")
-            return []
+            while True:
+                event = self._session.nextEvent(10000)  # 10 second timeout
 
-    def _get_blpapi_historical_data(
-        self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[Dict[str, Any]]:
-        """Get historical data using blpapi (original implementation)"""
-        # Original implementation code here
-        # ... (copy from original bloomberg_service.py)
-        return []
+                if event.eventType() == blpapi.Event.TIMEOUT:
+                    logger.warning("Bloomberg historical data request timed out")
+                    break
+
+                elif event.eventType() == blpapi.Event.RESPONSE:
+                    for msg in event:
+                        if msg.hasElement("securityData"):
+                            security_data = msg.getElement("securityData")
+                            
+                            # Check for security errors
+                            if security_data.hasElement("securityError"):
+                                error = security_data.getElement("securityError")
+                                logger.warning(f"Security error for {symbol}: {error}")
+                                break
+                                
+                            if security_data.hasElement("fieldData"):
+                                field_data = security_data.getElement("fieldData")
+
+                                for i in range(field_data.numValues()):
+                                    data_point = field_data.getValueAsElement(i)
+                                    if data_point.hasElement("date") and data_point.hasElement("PX_LAST"):
+                                        date = data_point.getElementAsDatetime("date")
+                                        price = data_point.getElementAsFloat("PX_LAST")
+
+                                        results.append(
+                                            {"date": date.strftime("%Y-%m-%d"), "price": price}
+                                        )
+                    break
+
+            logger.info(f"Retrieved {len(results)} historical data points for {symbol}")
+            
+            # Cache the historical data
+            if results:
+                self._cache_historical_data(symbol, results)
+            
+            return results
+
+        except Exception as e:
+            logger.error(f"Error fetching historical data from Bloomberg: {e}")
+            return []
 
     def close(self) -> None:
         """Close Bloomberg connection"""
-        if self._session and self._is_connected and BLOOMBERG_TYPE == "blpapi":
+        if self._session and self._is_connected:
             try:
                 self._session.stop()
                 logger.info("Bloomberg session closed")
@@ -441,7 +456,3 @@ class BloombergService:
 
 # Global instance
 bloomberg_service = BloombergService()
-
-# Add pandas import if using xbbg
-if BLOOMBERG_TYPE == "xbbg":
-    import pandas as pd 
